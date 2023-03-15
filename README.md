@@ -1,1 +1,1 @@
-# beaconchain-pools-identifier
+# eth-pools-identifier
