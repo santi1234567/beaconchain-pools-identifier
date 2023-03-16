@@ -3,7 +3,6 @@ package poolIdentifier
 import (
 	"bufio"
 	"context"
-	"fmt"
 	"os"
 
 	"github.com/pkg/errors"
@@ -61,15 +60,12 @@ func ReadDepositorAddresses(a *PoolIdentifier) (error) {
 		if err != nil {
 			return errors.Wrap(err, "could not read file "+ fileName)
 		}
-		fmt.Println(fileName)
 	
 		defer f.Close()
 	
 		scanner := bufio.NewScanner(f)
 		var depositors []string
 		for scanner.Scan() {
-			// do something with a line
-			fmt.Printf("line: %s\n", scanner.Text())
 			depositors = append(depositors, scanner.Text())
 		}
 		if err := scanner.Err(); err != nil {
@@ -84,8 +80,10 @@ func ReadDepositorAddresses(a *PoolIdentifier) (error) {
 		if err != nil {
 			return errors.Wrap(err, "could not write validators from pool "+poolName +" to .txt file ")
 		}
+		
+		log.Info("Done getting pool validators for pool: ", poolName, ". Found ", len(validators), " validators")
     }
-
+	
 	return nil
 }
 func WritePoolValidatorsFile(pool string, validators []string) (error) {
