@@ -2,6 +2,7 @@ package postgresql
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 
 	"github.com/jackc/pgx/v4"
@@ -52,7 +53,7 @@ func (db *Postgresql) GetPoolValidators(pool string, depositors []string) ([]str
 	where f_eth1_sender in
 	(`
 	for _, depositor := range depositors {
-		query += "\""+depositor+"\","
+		query += "'"+depositor+"',"
 	}
 	query = query[:len(query)-1] + ");"
 	rows, err := db.postgresql.Query(context.Background(),query)
@@ -61,14 +62,19 @@ func (db *Postgresql) GetPoolValidators(pool string, depositors []string) ([]str
 	}
 
 	defer rows.Close()
+	
+		
 	var validators []string
 	for rows.Next() {
-		values, err := rows.Values()
+		var data []byte
+		err := rows.Scan(&data)
 		if err != nil {
 			return nil, errors.Wrap(err, "could not get values from row for pool "+pool)
 		}
-		validators = append(validators, values[0].(string))
+		validators = append(validators, "\\x"+hex.EncodeToString(data))
 	}
-
+    if err := rows.Err(); err != nil {
+        return nil, errors.Wrap(err, "could not get values from row for pool "+pool)
+    }
 	return validators, nil
 }
