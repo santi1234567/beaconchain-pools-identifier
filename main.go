@@ -7,6 +7,7 @@ import (
 	"syscall"
 
 	"github.com/santi1234567/eth-pools-identifier/config"
+	"github.com/santi1234567/eth-pools-identifier/poolHistory"
 	"github.com/santi1234567/eth-pools-identifier/poolIdentifier"
 	log "github.com/sirupsen/logrus"
 )
@@ -28,7 +29,18 @@ func main() {
 		log.Fatal(err)
 	}
 
-	go poolIdentifier.Run()
+	
+	 go poolIdentifier.Run()
+
+	
+	if (config.History){
+		poolHistory, err := poolHistory.NewpoolHistory(context.Background(), config, *poolIdentifier.ValidatorPoolMap)
+	
+		if err != nil {
+			log.Fatal(err)
+		}	
+		go poolHistory.Run()
+	}
 	// Wait for signal.
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)

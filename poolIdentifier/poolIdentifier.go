@@ -18,7 +18,7 @@ import (
 
 type PoolIdentifier struct {
 	postgresql     *postgresql.Postgresql
-	
+	ValidatorPoolMap *map[string]string
 	config     *config.Config // TODO: Remove repeated parameters
 }
 
@@ -26,7 +26,7 @@ func NewPoolIdentifier(
 	ctx context.Context,
 	config *config.Config) (*PoolIdentifier, error) {
 
-
+	var validatorPoolMap = make(map[string]string)
 	var pg *postgresql.Postgresql
 	var err error
 	if config.Postgres != "" {
@@ -42,11 +42,11 @@ func NewPoolIdentifier(
 		// }
 	}
 
-	return &PoolIdentifier{postgresql:  pg,config:      config,}, nil
+	return &PoolIdentifier{postgresql:  pg,config:      config,ValidatorPoolMap: &validatorPoolMap}, nil
 	
 	
 }
-func (a *PoolIdentifier) Run() {
+func (a *PoolIdentifier) Run() () {
 	err := ReadDepositorAddresses(a)
 
 	if err != nil {
@@ -57,7 +57,6 @@ func (a *PoolIdentifier) Run() {
 
 func ReadDepositorAddresses(a *PoolIdentifier) (error) {
 	var dir string = "./poolDepositors/"
-
 	files, err := os.ReadDir(dir)
 	if err != nil {
 		return errors.Wrap(err, "could not read files in directory "+ dir)
@@ -85,6 +84,11 @@ func ReadDepositorAddresses(a *PoolIdentifier) (error) {
 		}
 
 		validators, err := a.postgresql.GetPoolValidators(poolName, depositors)
+		if a.config.History {
+			for _, validator := range validators {
+				(*a.ValidatorPoolMap)[validator] = poolName
+			}
+		}
 		if err != nil {
 			return errors.Wrap(err, "could not get pool validators for pool"+poolName+" from postgresql")
 		}		

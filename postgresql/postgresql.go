@@ -2,6 +2,7 @@ package postgresql
 
 import (
 	"context"
+	"database/sql"
 	"encoding/hex"
 	"fmt"
 
@@ -22,7 +23,6 @@ func New(postgresEndpoint string) (*Postgresql, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	return &Postgresql{
 		postgresql: conn,
 	}, nil
@@ -47,6 +47,43 @@ func (db *Postgresql) CreateValidatorPoolTable() error {
 	return nil
 }
 
+
+func (db *Postgresql) GetValidators() ( map[string][]int64, error) {
+	var query = `SELECT f_public_key,f_activation_epoch,f_exit_epoch FROM t_validators;`	
+	rows, err := db.postgresql.Query(context.Background(),query)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not get validators")
+	}
+
+	defer rows.Close()
+	
+	validators := map[string][]int64{}
+	for rows.Next() {
+		var publicKey []byte		
+		var activationEpochTemp sql.NullInt64
+		var activationEpoch int64
+		var exitEpochTemp sql.NullInt64
+		var exitEpoch int64
+		err := rows.Scan(&publicKey,&activationEpochTemp,&exitEpochTemp)
+		if err != nil {
+			return nil, errors.Wrap(err, "could not get values from row")
+		}
+		if activationEpochTemp.Valid { // If not, the validator isn't active
+			activationEpoch = activationEpochTemp.Int64
+			if exitEpochTemp.Valid {
+				exitEpoch = exitEpochTemp.Int64
+			} else {
+				exitEpoch = -1
+			}
+			validators["\\x"+hex.EncodeToString(publicKey)] = append(validators["\\x"+hex.EncodeToString(publicKey)],activationEpoch)
+			validators["\\x"+hex.EncodeToString(publicKey)] = append(validators["\\x"+hex.EncodeToString(publicKey)],exitEpoch)
+		}
+	}
+    if err := rows.Err(); err != nil {
+        return nil, errors.Wrap(err, "could not get values from row")
+    }
+	return validators, nil
+}
 
 func (db *Postgresql) GetPoolValidators(pool string, depositors []string) ([]string, error) {
 	var query = `SELECT f_validator_pubkey FROM t_eth1_deposits
