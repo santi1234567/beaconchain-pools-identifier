@@ -32,6 +32,8 @@ func NewPoolIdentifier(
 		if err != nil {
 			return nil, errors.Wrap(err, "could not create postgresql")
 		}
+
+		
 		// err = pg.CreateValidatorPoolTable()
 		// if err != nil {
 		// 	return nil, errors.Wrap(err, "error creating pool table to store data")
@@ -48,7 +50,13 @@ func (a *PoolIdentifier) Run() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	// if (a.config.History) {
+
+	// }
 }
+
+
 func ReadDepositorAddresses(a *PoolIdentifier) (error) {
 	var dir string = "./poolDepositors/"
 
@@ -82,7 +90,7 @@ func ReadDepositorAddresses(a *PoolIdentifier) (error) {
 		if err != nil {
 			return errors.Wrap(err, "could not get pool validators for pool"+poolName+" from postgresql")
 		}		
-		err = WritePoolValidatorsFile(poolName, validators)
+		err = WriteTextFile("./poolValidators/"+poolName+".txt", validators)
 		if err != nil {
 			return errors.Wrap(err, "could not write validators from pool "+poolName +" to .txt file ")
 		}
@@ -91,30 +99,12 @@ func ReadDepositorAddresses(a *PoolIdentifier) (error) {
     }
 	
 	log.Info("Writing summary file")
-	err = WritePoolsSummaryFile(poolSummary)
+	err = WriteTextFile("./poolValidators/poolSummary.txt", poolSummary)
 	if err != nil {
 		return errors.Wrap(err, "could not write file summary")
 	}
 	
 	log.Info("Done writing summary file")
-	return nil
-}
-func WritePoolValidatorsFile(pool string, validators []string) (error) {
-	var dir string = "./poolValidators/"
-	var filePath string = dir+pool+".txt"
-	err := WriteTextFile(filePath, validators)
-	if err != nil {
-		return errors.Wrap(err, "could not write text to file "+ filePath)
-	}
-	return nil
-}
-
-func WritePoolsSummaryFile(summary []string) (error) {
-	var path string = "./poolValidators/poolSummary.txt"
-	err := WriteTextFile(path, summary)
-	if err != nil {
-		return errors.Wrap(err, "could not write text to file "+ path)
-	}
 	return nil
 }
 
