@@ -3,6 +3,7 @@ package poolIdentifier
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"os"
 
 	"github.com/pkg/errors"
@@ -42,7 +43,11 @@ func NewPoolIdentifier(
 	
 }
 func (a *PoolIdentifier) Run() {
-	_ = ReadDepositorAddresses(a)
+	err := ReadDepositorAddresses(a)
+
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 func ReadDepositorAddresses(a *PoolIdentifier) (error) {
 	var dir string = "./poolDepositors/"
@@ -50,7 +55,8 @@ func ReadDepositorAddresses(a *PoolIdentifier) (error) {
 	files, err := os.ReadDir(dir)
 	if err != nil {
 		return errors.Wrap(err, "could not read files in directory "+ dir)
-	}	
+	}
+	var poolSummary []string
 	for _, file := range files {
 		var fileName string = file.Name()
 		var filePath string = dir+fileName
@@ -80,25 +86,49 @@ func ReadDepositorAddresses(a *PoolIdentifier) (error) {
 		if err != nil {
 			return errors.Wrap(err, "could not write validators from pool "+poolName +" to .txt file ")
 		}
-		
+		poolSummary = append(poolSummary, poolName + "," + fmt.Sprint(len(validators)))
 		log.Info("Done getting pool validators for pool: ", poolName, ". Found ", len(validators), " validators")
     }
 	
+	log.Info("Writing summary file")
+	err = WritePoolsSummaryFile(poolSummary)
+	if err != nil {
+		return errors.Wrap(err, "could not write file summary")
+	}
+	
+	log.Info("Done writing summary file")
 	return nil
 }
 func WritePoolValidatorsFile(pool string, validators []string) (error) {
 	var dir string = "./poolValidators/"
-	var fileName string = dir+pool+".txt"
-	f, err := os.Create(fileName)
+	var filePath string = dir+pool+".txt"
+	err := WriteTextFile(filePath, validators)
 	if err != nil {
-		return errors.Wrap(err, "could not create file "+ fileName)
+		return errors.Wrap(err, "could not write text to file "+ filePath)
+	}
+	return nil
+}
+
+func WritePoolsSummaryFile(summary []string) (error) {
+	var path string = "./poolValidators/poolSummary.txt"
+	err := WriteTextFile(path, summary)
+	if err != nil {
+		return errors.Wrap(err, "could not write text to file "+ path)
+	}
+	return nil
+}
+
+func WriteTextFile(filePath string, rows []string) (error) {
+	f, err := os.Create(filePath)
+	if err != nil {
+		return errors.Wrap(err, "could not create file in path "+ filePath)
 	}
 	defer f.Close()
 
-	for _, validator := range validators {
-		_, err := f.WriteString(validator + "\n")
+	for _, row := range rows{
+		_, err = f.WriteString(row + "\n")
 		if err != nil {
-			return errors.Wrap(err, "could not write validator "+ validator + " to file "+ fileName)
+			return errors.Wrap(err, "could not write text to file "+ filePath)
 		}
 	}
 	return nil
