@@ -47,6 +47,15 @@ func (db *Postgresql) CreateValidatorPoolTable() error {
 	return nil
 }
 
+func (db *Postgresql) GetLatestEpoch() (int, error) {
+	var query = `SELECT max(f_activation_epoch) FROM t_validators;`
+	var latestEpoch int
+	err := db.postgresql.QueryRow(context.Background(),query).Scan(&latestEpoch)
+	if err != nil {
+		return 0, errors.Wrap(err, "could not get latest epoch")
+	}
+	return latestEpoch, nil
+}
 
 func (db *Postgresql) GetValidators() ( map[string][]int64, error) {
 	var query = `SELECT f_public_key,f_activation_epoch,f_exit_epoch FROM t_validators;`	

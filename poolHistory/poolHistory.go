@@ -2,10 +2,13 @@ package poolHistory
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	"github.com/pkg/errors"
 	"github.com/santi1234567/eth-pools-identifier/config"
 	"github.com/santi1234567/eth-pools-identifier/postgresql"
+	"github.com/santi1234567/eth-pools-identifier/utils"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -53,7 +56,12 @@ func (a *poolHistory) Run() {
 
 func GetPooHistory(a *poolHistory) (error) {
 	log.Info("Getting pool history")
-	history := make([]map[string]int, 600000)
+	var latestEpoch, err = a.postgresql.GetLatestEpoch()
+	log.Info("Latest epoch recorded: ", latestEpoch)
+	if err != nil {
+		return errors.Wrap(err, "could not get latest epoch from postgresql")
+	}
+	history := make([]map[string]int, latestEpoch+1)
 	for i := range history {
 		history[i] = make(map[string]int)
 	}
@@ -71,13 +79,31 @@ func GetPooHistory(a *poolHistory) (error) {
 			history[data[1]][pool] --
 		}
 	}		
-	// for i := range history[1:] {		
-	// 	fmt.Println(history[i])
-	// 	for pool := range history[i] {
-	// 		history[i+1][pool] += history[i][pool]
-	// 	}
-	// 	fmt.Println(history[i+1])
-	// }
+	for i := range history[1:] {		
+		for pool := range history[i] {
+			history[i+1][pool] += history[i][pool]
+		}
+	}
+	var rows []string
+	// write header
+	var header string = "epoch,"
+	for pool := range history[len(history)-1] {
+		header += pool + ","
+	}
+	header = header[:len(header)-1]
+	rows = append(rows, header)
+	for epoch := range history {
+		var row string = fmt.Sprint(epoch) + ","
+		for _, pool := range strings.Split(header, ",")[1:] {
+			row += fmt.Sprint(history[epoch][pool]) + ","
+		}
+		rows = append(rows, row[:len(row)-1])
+	}
+	err = utils.WriteTextFile("./poolHistory/poolHistory.csv", rows)
+	if err != nil {
+		return errors.Wrap(err, "could not write pool history file")
+	}
+	log.Info("Done getting pool history")
 	return nil
 }
 
