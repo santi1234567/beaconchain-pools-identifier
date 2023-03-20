@@ -4,7 +4,7 @@ This project allows the identification of validators which are part of pools in 
 
 # Requirements
 
-The program in this repository checks the ETH deposits for each validator and then links it to a list of depositor addresses corresponding to each pool. The deposits are stored in a database created by [`chaind`](https://github.com/wealdtech/chaind). The lists of depositors were sourced from [this repository](https://github.com/alrevuelta/eth-metrics) and can be modified/added by the user (note that they could be wrong). 
+The program in this repository checks the ETH deposits for each validator and then links it to a list of depositor addresses corresponding to each pool. The deposits are stored in a database created by [`chaind`](https://github.com/wealdtech/chaind). The lists of depositors were sourced from [this repository](https://github.com/alrevuelta/eth-metrics) and [https://beaconcha.in/](https://beaconcha.in/) and can be modified/added by the user (note that they could be wrong). 
 
 # Chaind
 
