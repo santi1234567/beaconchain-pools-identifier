@@ -1,23 +1,80 @@
+coinbase,64516
+2300X,1892
 ankr,1769
 binance,32317
 bitcoinsuisse,13274
 bitfinex,1288
+bitfrost,566
 bitpie,900
+bitstamp,2162
+celsius,4943
 conurtrol.eth,495
 cream,737
+cryptostake.com,206
+danielwang.eth,2348
+figment,5269
+gemini,796
+ghash.eth,188
 huobi,2882
-kraken,39797
-kucoin,427
+imtoken,942
+kraken,39888
+kucoin,827
+lido,173531
 lighthouse-team,144
+nemorino.eth,666
 nimbus-team,144
 okex,2616
 piedao,710
+pogiboy.eth,180
 poloniex,400
 prysm-team,144
-stakedus,10742
-stakefish,5045
+quickcash,200
+rocketpool,26432
+sharedstake,500
+stakedus,14302
+stakefish,9509
+stakehound,1172
 stakewise,2734
-superphiz.eth,1
 teku-team,144
+tgerring.eth,753
+tokenpocket,209
 vitalik,218
+wangdong.eth,1609
+was.eth,201
 wexexchange,500
+whale 0x0038,400
+whale 0x0ec2,340
+whale 0x103a,528
+whale 0x1119,166
+whale 0x194b,1243
+whale 0x1ea6,1836
+whale 0x21d3,825
+whale 0x234e,1000
+whale 0x27d7,855
+whale 0x2ed8,239
+whale 0x3014,640
+whale 0x331e,270
+whale 0x38bc,344
+whale 0x46d2,323
+whale 0x5d7,10553
+whale 0x64e8,937
+whale 0x6e16,263
+whale 0x7104,197
+whale 0x711c,500
+whale 0x8914,2233
+whale 0x8d87,240
+whale 0xa85,900
+whale 0xb15c,300
+whale 0xb614,561
+whale 0xb73f,1639
+whale 0xbb84,500
+whale 0xc236,411
+whale 0xc541,200
+whale 0xc607,250
+whale 0xdcf3,156
+whale 0xe733,207
+whale 0xeab8,3928
+whale 0xf79c,200
+whale 0xfeaa,701
+whale 0xffa6,124
+wolverine.eth,160
