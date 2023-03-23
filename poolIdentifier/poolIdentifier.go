@@ -42,18 +42,49 @@ func NewPoolIdentifier(
 		// }
 	}
 
-	return &PoolIdentifier{postgresql:  pg,config:      config,ValidatorPoolMap: &validatorPoolMap}, nil
-	
-	
+	return &PoolIdentifier{postgresql:  pg,config:      config,ValidatorPoolMap: &validatorPoolMap}, nil	
 }
+
+
 func (a *PoolIdentifier) Run() () {
-	err := ReadDepositorAddresses(a)
+	err := ReadCoinbaseValidators(a)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = ReadDepositorAddresses(a)
 
 	if err != nil {
 		log.Fatal(err)
 	}
 }
 
+func ReadCoinbaseValidators(a *PoolIdentifier) (error) {
+	filePath := "./poolValidators/coinbase.txt"
+	log.Info("Getting validators for pool: coinbase")
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+        log.Info("No coinbase validators file found")
+		return nil
+	} else {
+		f, err := os.Open(filePath)
+		if err != nil {
+			return errors.Wrap(err, "could not read file coinbase.txt")
+		}
+	
+		defer f.Close()
+	
+		scanner := bufio.NewScanner(f)
+		for scanner.Scan() {
+			validator := scanner.Text()
+			(*a.ValidatorPoolMap)[validator] = "coinbase"
+		}
+		if err := scanner.Err(); err != nil {
+			return errors.Wrap(err, "could not get coinbase validators from file coinbase.txt")
+		}
+		log.Info("Done getting pool validators for pool: coinbase. Found ", len(*a.ValidatorPoolMap), " validators")
+		return nil
+	}
+}
 
 func ReadDepositorAddresses(a *PoolIdentifier) (error) {
 	var dir string = "./poolDepositors/"
@@ -62,6 +93,10 @@ func ReadDepositorAddresses(a *PoolIdentifier) (error) {
 		return errors.Wrap(err, "could not read files in directory "+ dir)
 	}
 	var poolSummary []string
+
+	if len(*a.ValidatorPoolMap) >0 {
+		poolSummary = append(poolSummary, "coinbase," + fmt.Sprint(len(*a.ValidatorPoolMap)))
+	}
 	for _, file := range files {
 		var fileName string = file.Name()
 		var filePath string = dir+fileName
@@ -80,7 +115,7 @@ func ReadDepositorAddresses(a *PoolIdentifier) (error) {
 			depositors = append(depositors, scanner.Text())
 		}
 		if err := scanner.Err(); err != nil {
-			return errors.Wrap(err, "could not get validators from depositor addresses corresponding to file "+ fileName)
+			return errors.Wrap(err, "could not get depositor addresses corresponding to file "+ fileName)
 		}
 
 		validators, err := a.postgresql.GetPoolValidators(poolName, depositors)
