@@ -21,21 +21,19 @@ func main() {
 	log.SetLevel(logLevel)
 
 	poolIdentifier, err := poolIdentifier.NewPoolIdentifier(context.Background(), config)
-	
+
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	
 	poolIdentifier.Run()
 
-	
-	if (config.History){
+	if config.History {
 		poolHistory, err := poolHistory.NewpoolHistory(context.Background(), config, *poolIdentifier.ValidatorPoolMap)
-	
+
 		if err != nil {
 			log.Fatal(err)
-		}	
+		}
 		poolHistory.Run()
 	}
 }
