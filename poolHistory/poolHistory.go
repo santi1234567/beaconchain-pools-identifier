@@ -13,11 +13,10 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-
 type poolHistory struct {
-	postgresql     *postgresql.Postgresql	
+	postgresql       *postgresql.Postgresql
 	validatorPoolMap *map[string]string
-	config     *config.Config // TODO: Remove repeated parameters
+	config           *config.Config // TODO: Remove repeated parameters
 }
 
 func NewpoolHistory(
@@ -32,18 +31,22 @@ func NewpoolHistory(
 			return nil, errors.Wrap(err, "could not create postgresql")
 		}
 
-		
-		// err = pg.CreateValidatorPoolTable()
-		// if err != nil {
-		// 	return nil, errors.Wrap(err, "error creating pool table to store data")
-		// }
+		if config.WriteMode == "database" {
+			if config.History {
+				err = pg.CreateValidatorPoolHistoryTable()
+				if err != nil {
+					return nil, errors.Wrap(err, "error creating validator pool history table")
+				}
+			}
+		}
 	}
 
-	return &poolHistory{postgresql:  pg,config:      config, validatorPoolMap: &validatorPoolMap}, nil
-	
-	
+	return &poolHistory{postgresql: pg, config: config, validatorPoolMap: &validatorPoolMap}, nil
+
 }
 func (a *poolHistory) Run() {
+	defer postgresql.Close(a.postgresql)
+
 	err := GetPooHistory(a)
 
 	if err != nil {
@@ -51,10 +54,7 @@ func (a *poolHistory) Run() {
 	}
 }
 
-
-
-
-func GetPooHistory(a *poolHistory) (error) {
+func GetPooHistory(a *poolHistory) error {
 	log.Info("Getting pool history")
 	var latestEpoch, err = a.postgresql.GetLatestEpoch()
 	log.Info("Latest epoch recorded: ", latestEpoch)
@@ -68,42 +68,57 @@ func GetPooHistory(a *poolHistory) (error) {
 	validators, err := a.postgresql.GetValidators()
 	if err != nil {
 		return errors.Wrap(err, "could not get validators from postgresql")
-	}		
+	}
 	for validator, data := range validators {
 		var pool string = (*a.validatorPoolMap)[validator]
 		if pool == "" {
 			pool = "unknown"
 		}
-		history[data[0]][pool] ++ 
-		if data[1] != -1 {
-			history[data[1]][pool] --
+		activationEpoch := data[0]
+		exitEpoch := data[1]
+		history[activationEpoch][pool]++
+		if exitEpoch != -1 {
+			history[exitEpoch][pool]--
 		}
-	}		
-	for i := range history[1:] {		
+	}
+	for i := range history[1:] {
 		for pool := range history[i] {
 			history[i+1][pool] += history[i][pool]
 		}
 	}
-	var rows []string
-	// write header
-	var header string = "epoch,"
-	for pool := range history[len(history)-1] {
-		header += pool + ","
-	}
-	header = header[:len(header)-1]
-	rows = append(rows, header)
-	for epoch := range history {
-		var row string = fmt.Sprint(epoch) + ","
-		for _, pool := range strings.Split(header, ",")[1:] {
-			row += fmt.Sprint(history[epoch][pool]) + ","
+	if a.config.WriteMode == "file" {
+		var rows []string
+		// write header
+		var header string = "epoch,"
+		for pool := range history[len(history)-1] {
+			header += pool + ","
 		}
-		rows = append(rows, row[:len(row)-1])
+		header = header[:len(header)-1]
+		rows = append(rows, header)
+		for epoch := range history {
+			var row string = fmt.Sprint(epoch) + ","
+			for _, pool := range strings.Split(header, ",")[1:] {
+				row += fmt.Sprint(history[epoch][pool]) + ","
+			}
+			rows = append(rows, row[:len(row)-1])
+		}
+		err = utils.WriteTextFile("./poolHistory/poolHistory.csv", rows)
+		if err != nil {
+			return errors.Wrap(err, "could not write pool history file")
+		}
+	} else {
+		for epoch := range history {
+			for pool := range history[epoch] {
+				if history[epoch][pool] > 0 {
+					err = a.postgresql.InsertValidatorPoolHistory(epoch, pool, history[epoch][pool])
+					if err != nil {
+						return errors.Wrap(err, "could not insert pool history")
+					}
+				}
+			}
+		}
 	}
-	err = utils.WriteTextFile("./poolHistory/poolHistory.csv", rows)
-	if err != nil {
-		return errors.Wrap(err, "could not write pool history file")
-	}
+
 	log.Info("Done getting pool history")
 	return nil
 }
-
