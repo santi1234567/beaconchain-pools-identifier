@@ -11,6 +11,8 @@ import (
 	"github.com/santi1234567/eth-pools-identifier/utils"
 
 	log "github.com/sirupsen/logrus"
+
+	progressbar "github.com/schollz/progressbar/v3"
 )
 
 type poolHistory struct {
@@ -107,7 +109,9 @@ func GetPooHistory(a *poolHistory) error {
 			return errors.Wrap(err, "could not write pool history file")
 		}
 	} else {
+		bar := progressbar.Default(int64(len(history)))
 		for epoch := range history {
+			bar.Add(1)
 			for pool := range history[epoch] {
 				if history[epoch][pool] > 0 {
 					err = a.postgresql.InsertValidatorPoolHistory(epoch, pool, history[epoch][pool])
