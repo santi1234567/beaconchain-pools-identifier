@@ -12,12 +12,12 @@ import (
 var ReleaseVersion = "custom-build"
 
 type Config struct {
-	Postgres              string
-	Verbosity             string
-	History               bool
-	WriteMode             string
+	Postgres  string
+	Verbosity string
+	History   bool
+	WriteMode string
+	ReadFrom  string
 }
-
 
 func NewCliConfig() (*Config, error) {
 	var version = flag.Bool("version", false, "Prints the release version and exits")
@@ -25,6 +25,7 @@ func NewCliConfig() (*Config, error) {
 	var verbosity = flag.String("verbosity", "info", "Logging verbosity (trace, debug, info=default, warn, error, fatal, panic)")
 	var poolHistory = flag.Bool("pool-history", false, "If true, it will create a file with daily pool data")
 	var writeMode = flag.String("write-mode", "file", "Write mode for the output (file, database)")
+	var readFrom = flag.String("read-from", "file", "Input for depositors. From file or database")
 	flag.Parse()
 
 	if *version {
@@ -37,12 +38,17 @@ func NewCliConfig() (*Config, error) {
 		os.Exit(0)
 	}
 
+	if *readFrom != "file" && *readFrom != "database" {
+		log.Info("Invalid read-from input. Valid values are: file, database")
+		os.Exit(0)
+	}
 
 	conf := &Config{
-		Postgres:              *postgres,
-		Verbosity:             *verbosity,
-		History:               *poolHistory,
-		WriteMode:             *writeMode,
+		Postgres:  *postgres,
+		Verbosity: *verbosity,
+		History:   *poolHistory,
+		WriteMode: *writeMode,
+		ReadFrom:  *readFrom,
 	}
 	logConfig(conf)
 	return conf, nil
@@ -50,9 +56,10 @@ func NewCliConfig() (*Config, error) {
 
 func logConfig(cfg *Config) {
 	log.WithFields(log.Fields{
-		"Postgres":              cfg.Postgres,
-		"Verbosity":             cfg.Verbosity,
-		"Pool-History":               cfg.History,
-		"Write-Mode":             cfg.WriteMode,
+		"Postgres":     cfg.Postgres,
+		"Verbosity":    cfg.Verbosity,
+		"Pool-History": cfg.History,
+		"Write-Mode":   cfg.WriteMode,
+		"Read-From":    cfg.ReadFrom,
 	}).Info("Cli Config:")
 }

@@ -85,10 +85,6 @@ func ReadCoinbaseValidators(a *PoolIdentifier) ([]string, error) {
 
 func ReadDepositorAddresses(a *PoolIdentifier) error {
 	var dir string = "./poolDepositors/"
-	files, err := os.ReadDir(dir)
-	if err != nil {
-		return errors.Wrap(err, "could not read files in directory "+dir)
-	}
 	var poolSummary []string
 
 	validators, err := ReadCoinbaseValidators(a)
@@ -107,27 +103,49 @@ func ReadDepositorAddresses(a *PoolIdentifier) error {
 	if len(*a.ValidatorPoolMap) > 0 {
 		poolSummary = append(poolSummary, "coinbase,"+fmt.Sprint(len(*a.ValidatorPoolMap)))
 	}
-	for _, file := range files {
-		var fileName string = file.Name()
-		var filePath string = dir + fileName
-		var poolName string = fileName[0 : len(fileName)-4] // remove .txt extension
-		f, err := os.Open(filePath)
-		log.Info("Getting validators for pool: ", poolName)
+	var poolNames []string
+	if a.config.ReadFrom == "file" {
+		files, err := os.ReadDir(dir)
 		if err != nil {
-			return errors.Wrap(err, "could not read file "+fileName)
+			return errors.Wrap(err, "could not read files in directory "+dir)
 		}
-
-		defer f.Close()
-
-		scanner := bufio.NewScanner(f)
+		for _, file := range files {
+			var fileName string = file.Name()
+			var poolName string = fileName[0 : len(fileName)-4] // remove .txt extension
+			poolNames = append(poolNames, poolName)
+		}
+	} else { // database
+		poolNames, err = a.postgresql.GetPoolNames()
+		if err != nil {
+			return errors.Wrap(err, "could not get pool names from database")
+		}
+	}
+	for _, poolName := range poolNames {
+		var fileName string = poolName + ".txt"
+		var filePath string = dir + fileName
+		log.Info("Getting validators for pool: ", poolName)
 		var depositors []string
-		for scanner.Scan() {
-			depositors = append(depositors, scanner.Text())
-		}
-		if err := scanner.Err(); err != nil {
-			return errors.Wrap(err, "could not get depositor addresses corresponding to file "+fileName)
-		}
+		if a.config.ReadFrom == "file" {
+			f, err := os.Open(filePath)
+			if err != nil {
+				return errors.Wrap(err, "could not read file "+fileName)
+			}
 
+			defer f.Close()
+
+			scanner := bufio.NewScanner(f)
+			for scanner.Scan() {
+				depositors = append(depositors, scanner.Text())
+			}
+			if err := scanner.Err(); err != nil {
+				return errors.Wrap(err, "could not get depositor addresses corresponding to file "+fileName)
+			}
+		} else { // database
+			depositors, err = a.postgresql.GetPoolDepositors(poolName)
+			if err != nil {
+				return errors.Wrap(err, "could not get pool depositors for pool "+poolName+" from postgresql")
+			}
+		}
 		validators, err := a.postgresql.GetPoolValidators(poolName, depositors)
 		if err != nil {
 			return errors.Wrap(err, "could not get pool validators for pool"+poolName+" from postgresql")

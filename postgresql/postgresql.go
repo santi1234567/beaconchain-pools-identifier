@@ -200,3 +200,51 @@ func (db *Postgresql) GetPoolValidators(pool string, depositors []string) ([]str
 	}
 	return validators, nil
 }
+
+func (db *Postgresql) GetPoolDepositors(pool string) ([]string, error) {
+	var query = `SELECT f_depositor_address FROM t_depositors where f_pool_name='` + pool + `';`
+	rows, err := db.postgresql.Query(context.Background(), query)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not get depositors")
+	}
+
+	defer rows.Close()
+
+	var depositors []string
+	for rows.Next() {
+		var data []byte
+		err := rows.Scan(&data)
+		if err != nil {
+			return nil, errors.Wrap(err, "could not get values from row")
+		}
+		depositors = append(depositors, "\\x"+hex.EncodeToString(data))
+	}
+	if err := rows.Err(); err != nil {
+		return nil, errors.Wrap(err, "could not get values from row")
+	}
+	return depositors, nil
+}
+
+func (db *Postgresql) GetPoolNames() ([]string, error) {
+	var query = `SELECT DISTINCT f_pool_name FROM t_depositors;`
+	rows, err := db.postgresql.Query(context.Background(), query)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not get pool names")
+	}
+
+	defer rows.Close()
+
+	var poolNames []string
+	for rows.Next() {
+		var data string
+		err := rows.Scan(&data)
+		if err != nil {
+			return nil, errors.Wrap(err, "could not get values from row")
+		}
+		poolNames = append(poolNames, data)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, errors.Wrap(err, "could not get values from row")
+	}
+	return poolNames, nil
+}
