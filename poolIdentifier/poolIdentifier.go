@@ -56,19 +56,30 @@ func (a *PoolIdentifier) Run() {
 }
 
 func ReadCoinbaseValidators(a *PoolIdentifier) ([]string, error) {
-	filePath := "./poolValidators/coinbase.txt"
+	var validators []string
 	log.Info("Getting validators for pool: coinbase")
-	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		log.Info("No coinbase validators file found")
-		return nil, nil
+	if a.config.ReadFrom == "database" {
+		validators, err := a.postgresql.GetCoinbaseValidators()
+
+		if err != nil {
+			return nil, errors.Wrap(err, "could not get coinbase validators from database")
+		}
+		for _, validator := range validators {
+			(*a.ValidatorPoolMap)[validator] = "coinbase"
+		}
 	} else {
+		filePath := "./poolValidators/coinbase.txt"
+		if _, err := os.Stat(filePath); os.IsNotExist(err) {
+			log.Info("No coinbase validators file found")
+			return nil, nil
+		}
+
 		f, err := os.Open(filePath)
 		if err != nil {
 			return nil, errors.Wrap(err, "could not read file coinbase.txt")
 		}
 
 		defer f.Close()
-		var validators []string
 		scanner := bufio.NewScanner(f)
 		for scanner.Scan() {
 			validators = append(validators, scanner.Text())
@@ -78,9 +89,9 @@ func ReadCoinbaseValidators(a *PoolIdentifier) ([]string, error) {
 		if err := scanner.Err(); err != nil {
 			return nil, errors.Wrap(err, "could not get coinbase validators from file coinbase.txt")
 		}
-		log.Info("Done getting pool validators for pool: coinbase. Found ", len(*a.ValidatorPoolMap), " validators")
-		return validators, nil
 	}
+	log.Info("Done getting pool validators for pool: coinbase. Found ", len(*a.ValidatorPoolMap), " validators")
+	return validators, nil
 }
 
 func ReadDepositorAddresses(a *PoolIdentifier) error {
@@ -92,12 +103,11 @@ func ReadDepositorAddresses(a *PoolIdentifier) error {
 		return errors.Wrap(err, "could not read coinbase validators")
 	}
 	if a.config.WriteMode == "database" && validators != nil {
-		for _, validator := range validators {
-			err = a.postgresql.InsertValidatorPool(validator, "coinbase")
-			if err != nil {
-				return errors.Wrap(err, "could not insert validator "+validator+" in validator pool database")
-			}
+		err = a.postgresql.InsertValidatorsPool(validators, "coinbase")
+		if err != nil {
+			return errors.Wrap(err, "could not insert validators in validator pool database")
 		}
+
 	}
 
 	if len(*a.ValidatorPoolMap) > 0 {
@@ -157,11 +167,10 @@ func ReadDepositorAddresses(a *PoolIdentifier) error {
 			}
 		}
 		if a.config.WriteMode == "database" {
-			for _, validator := range validators {
-				err = a.postgresql.InsertValidatorPool(validator, poolName)
-				if err != nil {
-					return errors.Wrap(err, "could not insert validator "+validator+" in validator pool database")
-				}
+			err = a.postgresql.InsertValidatorsPool(validators, poolName)
+
+			if err != nil {
+				return errors.Wrap(err, "could not insert validators in validator pool database")
 			}
 		} else {
 			err = utils.WriteTextFile("./poolValidators/"+poolName+".txt", validators)

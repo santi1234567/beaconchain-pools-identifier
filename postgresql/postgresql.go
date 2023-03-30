@@ -6,7 +6,9 @@ import (
 	"encoding/hex"
 	"fmt"
 
+	"github.com/jackc/pgconn"
 	"github.com/jackc/pgx/v4"
+
 	"github.com/pkg/errors"
 )
 
@@ -108,19 +110,57 @@ func (db *Postgresql) InsertValidatorPoolHistory(epoch int, pool string, activeV
 	return nil
 }
 
-func (db *Postgresql) InsertValidatorPool(validator string, pool string) error {
-	var insertQuery = `
-	INSERT INTO t_validators_pools(f_public_key,f_pool_name)
-	VALUES ($1,$2)
-	ON CONFLICT (f_public_key) DO UPDATE SET f_pool_name = $2;
-	`
-	if _, err := db.postgresql.Exec(
-		context.Background(),
-		insertQuery,
-		validator,
-		pool); err != nil {
-		return errors.Wrap(err, "could not insert validator pool")
+// Unused
+// func (db *Postgresql) InsertValidatorPool(validator string, pool string) error {
+// 	var insertQuery = `
+// 	INSERT INTO t_validators_pools(f_public_key,f_pool_name)
+// 	VALUES ($1,$2)
+// 	ON CONFLICT (f_public_key) DO UPDATE SET f_pool_name = $2;
+// 	`
+// 	if _, err := db.postgresql.Exec(
+// 		context.Background(),
+// 		insertQuery,
+// 		validator,
+// 		pool); err != nil {
+// 		return errors.Wrap(err, "could not insert validator pool")
+// 	}
+// 	return nil
+// }
+
+func (db *Postgresql) InsertValidatorsPool(validators []string, pool string) error {
+	// Start a new transaction
+	tx, err := db.postgresql.Begin(context.Background())
+	if err != nil {
+		return errors.Wrap(err, "could not start transaction")
 	}
+	defer tx.Rollback(context.Background())
+
+	count, err := tx.CopyFrom(
+		context.Background(),
+		pgx.Identifier{"t_validators_pools"},
+		[]string{"f_public_key", "f_pool_name"},
+		pgx.CopyFromSlice(len(validators), func(i int) ([]interface{}, error) {
+			return []interface{}{validators[i], pool}, nil
+		}),
+	)
+	if err != nil {
+		if pgErr, ok := err.(*pgconn.PgError); ok {
+			return errors.Wrapf(err, "Error writing validator %v to database: %v.", validators[pgErr.Line-1], pgErr.Message)
+		} else {
+			return errors.Wrap(err, "could not copy from slice")
+		}
+	}
+
+	if count != int64(len(validators)) {
+		return errors.Wrap(fmt.Errorf("an error occured while inserting validators in pool: %s. Inserted: %d but list had : %d", pool, count, len(validators)), "could not insert validators in pool")
+	}
+
+	// Commit the transaction
+	err = tx.Commit(context.Background())
+	if err != nil {
+		return errors.Wrap(err, "could not commit transaction")
+	}
+
 	return nil
 }
 
@@ -171,8 +211,32 @@ func (db *Postgresql) GetValidators() (map[string][]int64, error) {
 	return validators, nil
 }
 
+func (db *Postgresql) GetCoinbaseValidators() ([]string, error) {
+	var query = `SELECT f_validator_pubkey FROM t_coinbase_validators;`
+	rows, err := db.postgresql.Query(context.Background(), query)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not get validators")
+	}
+
+	defer rows.Close()
+
+	var validators []string
+	for rows.Next() {
+		var data []byte
+		err := rows.Scan(&data)
+		if err != nil {
+			return nil, errors.Wrap(err, "could not get values from row")
+		}
+		validators = append(validators, "\\x"+hex.EncodeToString(data))
+	}
+	if err := rows.Err(); err != nil {
+		return nil, errors.Wrap(err, "could not get values from row")
+	}
+	return validators, nil
+}
+
 func (db *Postgresql) GetPoolValidators(pool string, depositors []string) ([]string, error) {
-	var query = `SELECT f_validator_pubkey FROM t_eth1_deposits
+	var query = `SELECT DISTINCT f_validator_pubkey FROM t_eth1_deposits
 	where f_eth1_sender in
 	(`
 	for _, depositor := range depositors {
