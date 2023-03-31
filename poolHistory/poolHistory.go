@@ -112,14 +112,11 @@ func GetPooHistory(a *poolHistory) error {
 		bar := progressbar.Default(int64(len(history)))
 		for epoch := range history {
 			bar.Add(1)
-			for pool := range history[epoch] {
-				if history[epoch][pool] > 0 {
-					err = a.postgresql.InsertValidatorPoolHistory(epoch, pool, history[epoch][pool])
-					if err != nil {
-						return errors.Wrap(err, "could not insert pool history")
-					}
-				}
+			err = a.postgresql.InsertValidatorPoolHistory(epoch, history[epoch])
+			if err != nil {
+				return errors.Wrap(err, "could not insert pool history")
 			}
+
 		}
 	}
 

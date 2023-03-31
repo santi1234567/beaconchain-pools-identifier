@@ -97,16 +97,70 @@ func (db *Postgresql) CreateValidatorPoolHistoryTable() error {
 	return nil
 }
 
-func (db *Postgresql) InsertValidatorPoolHistory(epoch int, pool string, activeValidators int) error {
-	var insertQuery = `INSERT INTO t_validators_pools_history(f_epoch,f_pool_name,f_active_validators) VALUES ($1,$2,$3);`
-	if _, err := db.postgresql.Exec(
-		context.Background(),
-		insertQuery,
-		epoch,
-		pool,
-		activeValidators); err != nil {
-		return errors.Wrap(err, "could not insert validator pool history")
+//	func (db *Postgresql) InsertValidatorPoolHistory(epoch int, pool string, activeValidators int) error {
+//		var insertQuery = `INSERT INTO t_validators_pools_history(f_epoch,f_pool_name,f_active_validators) VALUES ($1,$2,$3);`
+//		if _, err := db.postgresql.Exec(
+//			context.Background(),
+//			insertQuery,
+//			epoch,
+//			pool,
+//			activeValidators); err != nil {
+//			return errors.Wrap(err, "could not insert validator pool history")
+//		}
+//		return nil
+//	}
+//
+
+// TODO FIX ISSUE WITH DUPLICATED KEY
+func (db *Postgresql) InsertValidatorPoolHistory(epoch int, activeValidatorsMap map[string]int) error {
+	// Start a new transaction
+	tx, err := db.postgresql.Begin(context.Background())
+	if err != nil {
+		return errors.Wrap(err, "could not start transaction")
 	}
+	defer tx.Rollback(context.Background())
+
+	// Define a tuple struct
+	type Tuple struct {
+		Key   string
+		Value int
+	}
+	// Convert the map to a slice of tuples
+	var activeValidatorsList []Tuple
+	for k, v := range activeValidatorsMap {
+		if v > 0 {
+			activeValidatorsList = append(activeValidatorsList, Tuple{k, v})
+		}
+	}
+
+	// Copy the data from the slice into the table
+	count, err := tx.CopyFrom(
+		context.Background(),
+		pgx.Identifier{"t_validators_pools_history"},
+		[]string{"f_epoch", "f_pool_name", "f_active_validators"},
+		pgx.CopyFromSlice(len(activeValidatorsList), func(i int) ([]interface{}, error) {
+			return []interface{}{epoch, activeValidatorsList[i].Key, activeValidatorsList[i].Value}, nil
+		}),
+	)
+
+	if err != nil {
+		if pgErr, ok := err.(*pgconn.PgError); ok {
+			return errors.Wrapf(err, "Error writing pool to database: %v. Details: %v", pgErr.Message, pgErr.Detail)
+		} else {
+			return errors.Wrap(err, "could not copy from slice")
+		}
+	}
+
+	if count != int64(len(activeValidatorsList)) {
+		return errors.Wrap(fmt.Errorf("an error occured while inserting validators in epoch: %d. Inserted: %d but list had : %d", epoch, count, len(activeValidatorsList)), "could not insert validators in pool")
+	}
+
+	// Commit the transaction
+	err = tx.Commit(context.Background())
+	if err != nil {
+		return errors.Wrap(err, "could not commit transaction")
+	}
+
 	return nil
 }
 
