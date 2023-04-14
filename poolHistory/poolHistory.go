@@ -79,7 +79,7 @@ func GetPooHistory(a *poolHistory) error {
 		activationEpoch := data[0]
 		exitEpoch := data[1]
 		history[activationEpoch][pool]++
-		if exitEpoch != -1 {
+		if exitEpoch != -1 && exitEpoch < int64(len(history)) {
 			history[exitEpoch][pool]--
 		}
 	}
